@@ -1,8 +1,8 @@
 import uuid
 from datetime import datetime
 
-from sqlalchemy import DateTime, JSON, String, Text, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy import DateTime, JSON, String, Text, func # pyright: ignore[reportMissingImports]
+from sqlalchemy.orm import Mapped, mapped_column # pyright: ignore[reportMissingImports]
 
 from app.database.connection import Base
 

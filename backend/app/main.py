@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI # pyright: ignore[reportMissingImports]
 
 app = FastAPI(
     title="Distributed Job Processing Platform",
