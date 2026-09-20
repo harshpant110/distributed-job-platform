@@ -58,8 +58,11 @@
 
         environment:
           REDIS_URL: redis://redis:6379/0
+          DATABASE_URL: ${DATABASE_URL}
 
         depends_on:
+          postgres:
+            condition: service_healthy
           redis:
             condition: service_healthy
 

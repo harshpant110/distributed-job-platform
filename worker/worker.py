@@ -2,7 +2,7 @@ import os
 import time
 
 import redis
-
+from job_service import mark_job_processing
 
 REDIS_URL = os.getenv(
     "REDIS_URL",
@@ -35,6 +35,7 @@ def process_jobs():
             f"Received job: {job_id}",
             flush=True,
         )
+        mark_job_processing(job_id)
 
         # Temporary processing simulation
         time.sleep(2)
