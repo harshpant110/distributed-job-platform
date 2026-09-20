@@ -1,53 +1,67 @@
-  services:
-    postgres:
-      image: postgres:16
-      container_name: job-platform-postgres
-      restart: unless-stopped
+    services:
+      postgres:
+        image: postgres:16
+        container_name: job-platform-postgres
+        restart: unless-stopped
 
-      environment:
-        POSTGRES_DB: ${POSTGRES_DB}
-        POSTGRES_USER: ${POSTGRES_USER}
-        POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+        environment:
+          POSTGRES_DB: ${POSTGRES_DB}
+          POSTGRES_USER: ${POSTGRES_USER}
+          POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
 
-      volumes:
-        - postgres_data:/var/lib/postgresql/data
+        volumes:
+          - postgres_data:/var/lib/postgresql/data
 
-      healthcheck:
-        test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-        interval: 5s
-        timeout: 5s
-        retries: 5
+        healthcheck:
+          test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+          interval: 5s
+          timeout: 5s
+          retries: 5
 
-    backend:
-      build:
-        context: ./backend
+      backend:
+        build:
+          context: ./backend
 
-      container_name: job-platform-backend
-      restart: unless-stopped
+        container_name: job-platform-backend
+        restart: unless-stopped
 
-      environment:
-        DATABASE_URL: ${DATABASE_URL}
-        REDIS_URL: redis://redis:6379/0
+        environment:
+          DATABASE_URL: ${DATABASE_URL}
+          REDIS_URL: redis://redis:6379/0
 
-      depends_on:
-        postgres:
-          condition: service_healthy
-        redis:
-          condition: service_healthy
+        depends_on:
+          postgres:
+            condition: service_healthy
+          redis:
+            condition: service_healthy
 
-      ports:
-        - "8000:8000"
+        ports:
+          - "8000:8000"
 
-    redis:
-      image: redis:7-alpine
-      container_name: job-platform-redis
-      restart: unless-stopped
+      redis:
+        image: redis:7-alpine
+        container_name: job-platform-redis
+        restart: unless-stopped
 
-      healthcheck:
-        test: ["CMD", "redis-cli", "ping"]
-        interval: 5s
-        timeout: 3s
-        retries: 5
+        healthcheck:
+          test: ["CMD", "redis-cli", "ping"]
+          interval: 5s
+          timeout: 3s
+          retries: 5
 
-  volumes:
-    postgres_data:
+      worker:
+        build:
+          context: ./worker
+
+        container_name: job-platform-worker
+        restart: unless-stopped
+
+        environment:
+          REDIS_URL: redis://redis:6379/0
+
+        depends_on:
+          redis:
+            condition: service_healthy
+
+    volumes:
+      postgres_data:
