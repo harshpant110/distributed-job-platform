@@ -3,6 +3,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+from app.services.queue import enqueue_job
 
 from app.database.connection import get_db
 from app.models.job import Job
@@ -59,5 +60,7 @@ async def create_job(
     db.add(job)
     db.commit()
     db.refresh(job)
+
+    enqueue_job(str(job.id))
 
     return job
