@@ -6,6 +6,6 @@ COPY requirements.txt .
 
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY worker.py database.py models.py job_service.py ./
+COPY worker.py database.py models.py job_service.py csv_processor.py ./
 
 CMD ["python", "worker.py"]

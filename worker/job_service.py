@@ -33,7 +33,7 @@ def mark_job_processing(job_id: str) -> None:
         session.close()
 
 
-def mark_job_completed(job_id: str) -> None:
+def mark_job_completed(job_id: str, result: dict) -> None:
     session = SessionLocal()
 
     try:
@@ -45,10 +45,7 @@ def mark_job_completed(job_id: str) -> None:
 
         job.status = "COMPLETED"
         job.completed_at = datetime.now(timezone.utc)
-
-        job.result = {
-            "message": "Processing simulation completed",
-        }
+        job.result = result
 
         session.commit()
 
@@ -60,6 +57,21 @@ def mark_job_completed(job_id: str) -> None:
     except Exception:
         session.rollback()
         raise
+
+    finally:
+        session.close()
+
+def get_job_file_path(job_id: str) -> str | None:
+    session = SessionLocal()
+
+    try:
+        job = session.get(Job, UUID(job_id))
+
+        if job is None:
+            print(f"Job not found: {job_id}", flush=True)
+            return None
+
+        return job.file_path
 
     finally:
         session.close()

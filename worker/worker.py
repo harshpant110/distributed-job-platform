@@ -1,8 +1,8 @@
 import os
-import time
-
 import redis
+from csv_processor import analyze_csv
 from job_service import (
+    get_job_file_path,
     mark_job_completed,
     mark_job_processing,
 )
@@ -40,10 +40,14 @@ def process_jobs():
         )
         mark_job_processing(job_id)
 
-        # Temporary processing simulation
-        time.sleep(2)
+        file_path = get_job_file_path(job_id)
 
-        mark_job_completed(job_id)
+        if file_path is None:
+            continue
+
+        result = analyze_csv(file_path)
+
+        mark_job_completed(job_id, result)
 
         print(
             f"Finished job: {job_id}",
