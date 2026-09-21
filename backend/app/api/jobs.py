@@ -1,6 +1,6 @@
 from pathlib import Path
 
-from uuid import UUID
+from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy import select
@@ -64,13 +64,16 @@ async def create_job(
             detail="Only CSV files are supported",
         )
 
-    file_path = UPLOAD_DIRECTORY / file.filename
+    original_filename = Path(file.filename).name
+
+    stored_filename = f"{uuid4().hex}.csv"
+    file_path = UPLOAD_DIRECTORY / stored_filename
 
     file_content = await file.read()
     file_path.write_bytes(file_content)
 
     job = Job(
-        filename=file.filename,
+        filename=original_filename,
         file_path=str(file_path),
         status="QUEUED",
     )
