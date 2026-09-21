@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from uuid import UUID
+
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -27,6 +29,22 @@ def get_jobs(db: Session = Depends(get_db)):
     jobs = db.scalars(statement).all()
 
     return jobs
+
+
+@router.get("/{job_id}", response_model=JobResponse)
+def get_job(
+    job_id: UUID,
+    db: Session = Depends(get_db),
+):
+    job = db.get(Job, job_id)
+
+    if job is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Job not found",
+        )
+
+    return job
 
 
 @router.post("/", response_model=JobResponse, status_code=201)
