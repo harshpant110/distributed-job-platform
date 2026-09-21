@@ -1,15 +1,14 @@
 from pathlib import Path
-
 from uuid import UUID, uuid4
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from sqlalchemy import select
 from sqlalchemy.orm import Session
-from app.services.queue import enqueue_job
 
 from app.database.connection import get_db
 from app.models.job import Job
 from app.schemas.job import JobResponse
+from app.services.queue import enqueue_job
 
 
 router = APIRouter(
@@ -20,6 +19,8 @@ router = APIRouter(
 
 UPLOAD_DIRECTORY = Path("/app/uploads")
 UPLOAD_DIRECTORY.mkdir(parents=True, exist_ok=True)
+
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
 
 
 @router.get("/", response_model=list[JobResponse])
@@ -70,6 +71,19 @@ async def create_job(
     file_path = UPLOAD_DIRECTORY / stored_filename
 
     file_content = await file.read()
+
+    if not file_content:
+        raise HTTPException(
+            status_code=400,
+            detail="Uploaded file is empty",
+        )
+
+    if len(file_content) > MAX_FILE_SIZE:
+        raise HTTPException(
+            status_code=413,
+            detail="File size exceeds the 10 MB limit",
+        )
+
     file_path.write_bytes(file_content)
 
     job = Job(
