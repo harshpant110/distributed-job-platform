@@ -4,6 +4,7 @@ from csv_processor import analyze_csv
 from job_service import (
     get_job_file_path,
     mark_job_completed,
+    mark_job_failed,
     mark_job_processing,
 )
 
@@ -38,22 +39,43 @@ def process_jobs():
             f"Received job: {job_id}",
             flush=True,
         )
-        mark_job_processing(job_id)
 
-        file_path = get_job_file_path(job_id)
+        try:
+            mark_job_processing(job_id)
 
-        if file_path is None:
-            continue
+            file_path = get_job_file_path(job_id)
 
-        result = analyze_csv(file_path)
+            if file_path is None:
+                raise FileNotFoundError(
+                    f"Job file path not found for job {job_id}"
+                )
 
-        mark_job_completed(job_id, result)
+            result = analyze_csv(file_path)
 
-        print(
-            f"Finished job: {job_id}",
-            flush=True,
-        )
+            mark_job_completed(job_id, result)
 
+            print(
+                f"Finished job: {job_id}",
+                flush=True,
+            )
+
+        except Exception as exc:
+            error_message = str(exc) or exc.__class__.__name__
+
+            print(
+                f"Job failed: {job_id}: {error_message}",
+                flush=True,
+            )
+
+            try:
+                mark_job_failed(job_id, error_message)
+
+            except Exception as failure_exc:
+                print(
+                    f"Could not mark job as FAILED: "
+                    f"{job_id}: {failure_exc}",
+                    flush=True,
+                )
 
 if __name__ == "__main__":
     process_jobs()

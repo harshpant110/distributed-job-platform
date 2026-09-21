@@ -75,3 +75,31 @@ def get_job_file_path(job_id: str) -> str | None:
 
     finally:
         session.close()
+
+def mark_job_failed(job_id: str, error_message: str) -> None:
+    session = SessionLocal()
+
+    try:
+        job = session.get(Job, UUID(job_id))
+
+        if job is None:
+            print(f"Job not found: {job_id}", flush=True)
+            return
+
+        job.status = "FAILED"
+        job.completed_at = datetime.now(timezone.utc)
+        job.error = error_message
+
+        session.commit()
+
+        print(
+            f"Job marked as FAILED: {job_id}",
+            flush=True,
+        )
+
+    except Exception:
+        session.rollback()
+        raise
+
+    finally:
+        session.close()
