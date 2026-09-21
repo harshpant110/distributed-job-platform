@@ -91,11 +91,22 @@ async def create_job(
         file_path=str(file_path),
         status="QUEUED",
     )
+    try:
+        db.add(job)
+        db.commit()
+        db.refresh(job)
 
-    db.add(job)
-    db.commit()
-    db.refresh(job)
+        enqueue_job(str(job.id))
 
-    enqueue_job(str(job.id))
+        return job
 
-    return job
+    except Exception as exc:
+        db.rollback()
+
+        if file_path.exists():
+            file_path.unlink()
+
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to create and queue job",
+        ) from exc
