@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import "./App.css";
 
-const API_URL = "http://localhost:8000";
+const API_URL = "http://localhost:8080/api";
 
 function App() {
   const [selectedFile, setSelectedFile] = useState(null);
