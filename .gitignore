@@ -18,3 +18,5 @@ dist/
 
 # Local test files
 test.csv
+# Docker secrets
+secrets/

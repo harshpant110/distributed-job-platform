@@ -13,10 +13,11 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-
+      POSTGRES_PASSWORD_FILE: /run/secrets/db_password
     networks:
       - app_network
+    secrets:
+      - db_password
 
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -64,11 +65,13 @@ services:
         max-file: "3"
 
     environment:
-      DATABASE_URL: ${DATABASE_URL}
       REDIS_URL: redis://redis:6379/0
 
     networks:
       - app_network
+
+    secrets:
+      - db_password
 
     volumes:
       - uploads_data:/app/uploads
@@ -110,10 +113,12 @@ services:
 
     environment:
       REDIS_URL: redis://redis:6379/0
-      DATABASE_URL: ${DATABASE_URL}
 
     networks:
       - app_network
+
+    secrets:
+      - db_password
 
     volumes:
       - uploads_data:/app/uploads
@@ -174,3 +179,7 @@ volumes:
 networks:
   app_network:
     driver: bridge
+
+secrets:
+  db_password:
+    file: ./secrets/db_password.txt
