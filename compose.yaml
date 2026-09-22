@@ -4,6 +4,12 @@ services:
     container_name: job-platform-postgres
     restart: unless-stopped
 
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -26,6 +32,12 @@ services:
     container_name: job-platform-redis
     restart: unless-stopped
 
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
     networks:
       - app_network
 
@@ -41,6 +53,12 @@ services:
 
     container_name: job-platform-backend
     restart: unless-stopped
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
     environment:
       DATABASE_URL: ${DATABASE_URL}
@@ -78,6 +96,12 @@ services:
     container_name: job-platform-worker
     restart: unless-stopped
 
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
     environment:
       REDIS_URL: redis://redis:6379/0
       DATABASE_URL: ${DATABASE_URL}
@@ -99,6 +123,12 @@ services:
     container_name: job-platform-nginx
     restart: unless-stopped
 
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
     ports:
       - "8080:80"
 
@@ -118,6 +148,12 @@ services:
 
     container_name: job-platform-frontend
     restart: unless-stopped
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
     ports:
       - "8081:80"
