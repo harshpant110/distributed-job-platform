@@ -97,6 +97,8 @@ services:
 
     container_name: job-platform-worker
     restart: unless-stopped
+    mem_limit: 512m
+    mem_reservation: 256m
 
     logging:
       driver: "json-file"
