@@ -82,6 +82,14 @@ services:
     depends_on:
       - backend
 
+  frontend:
+    build:
+      context: ./frontend
+    container_name: job-platform-frontend
+    restart: unless-stopped
+    ports:
+      - "8081:80"
+
 volumes:
   postgres_data:
   uploads_data:
