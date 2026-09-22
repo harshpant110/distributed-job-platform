@@ -55,6 +55,7 @@ services:
     restart: unless-stopped
     mem_limit: 512m
     mem_reservation: 256m
+    cpus: 0.5
 
     logging:
       driver: "json-file"
@@ -99,6 +100,7 @@ services:
     restart: unless-stopped
     mem_limit: 512m
     mem_reservation: 256m
+    cpus: 1.0
 
     logging:
       driver: "json-file"
