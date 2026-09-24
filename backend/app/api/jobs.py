@@ -1,7 +1,12 @@
 from pathlib import Path
 from uuid import UUID, uuid4
 
+import asyncio
+import json
+
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi.responses import StreamingResponse
+
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -46,6 +51,69 @@ def get_job(
         )
 
     return job
+
+
+@router.get("/{job_id}/events")
+async def job_events(
+    job_id: UUID,
+    db: Session = Depends(get_db),
+):
+    job = db.get(Job, job_id)
+
+    if job is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Job not found",
+        )
+
+    async def event_generator():
+        last_status = None
+
+        while True:
+            db.expire_all()
+
+            current_job = db.get(Job, job_id)
+
+            if current_job is None:
+                yield f"data: {json.dumps({'error': 'Job not found'})}\n\n"
+                break
+
+            current_status = current_job.status
+
+            if current_status != last_status:
+                event = {
+                    "id": str(current_job.id),
+                    "status": current_job.status,
+                    "created_at": current_job.created_at.isoformat()
+                    if current_job.created_at
+                    else None,
+                    "started_at": current_job.started_at.isoformat()
+                    if current_job.started_at
+                    else None,
+                    "completed_at": current_job.completed_at.isoformat()
+                    if current_job.completed_at
+                    else None,
+                    "result": current_job.result,
+                    "error": current_job.error,
+                }
+
+                yield f"data: {json.dumps(event)}\n\n"
+
+                last_status = current_status
+
+            if current_status in {"COMPLETED", "FAILED"}:
+                break
+
+            await asyncio.sleep(0.5)
+
+    return StreamingResponse(
+        event_generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        },
+    )
 
 
 @router.post("/", response_model=JobResponse, status_code=201)
