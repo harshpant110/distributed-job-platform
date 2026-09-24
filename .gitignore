@@ -20,3 +20,9 @@ dist/
 test.csv
 # Docker secrets
 secrets/
+
+# Test artifacts
+
+test.db
+backend/test.db
+backend/test_uploads/

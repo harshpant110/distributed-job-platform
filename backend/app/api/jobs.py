@@ -1,3 +1,5 @@
+import os
+
 from pathlib import Path
 from uuid import UUID, uuid4
 
@@ -22,7 +24,9 @@ router = APIRouter(
 )
 
 
-UPLOAD_DIRECTORY = Path("/app/uploads")
+UPLOAD_DIRECTORY = Path(
+    os.getenv("UPLOAD_DIRECTORY", "/app/uploads")
+)
 UPLOAD_DIRECTORY.mkdir(parents=True, exist_ok=True)
 
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
@@ -199,7 +203,13 @@ async def create_job(
         db.commit()
         db.refresh(job)
 
-        enqueue_job(str(job.id))
+        try:
+            enqueue_job(str(job.id))
+
+        except Exception:
+            db.delete(job)
+            db.commit()
+            raise
 
         return job
 

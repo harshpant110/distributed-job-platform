@@ -22,9 +22,9 @@ def get_database_url() -> str:
     if database_url:
         return database_url
 
-    return (
-        "postgresql+psycopg://jobuser:jobpassword"
-        "@localhost:5432/jobdb"
+    raise RuntimeError(
+        "Database configuration is missing. "
+        "Set DATABASE_URL or provide the db_password Docker secret."
     )
 
 

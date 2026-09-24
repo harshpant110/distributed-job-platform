@@ -253,6 +253,30 @@ function App() {
     (job) => job.status === "FAILED"
   ).length;
 
+  const finishedJobs = completedJobs + failedJobs;
+
+  const successRate =
+    finishedJobs > 0
+      ? ((completedJobs / finishedJobs) * 100).toFixed(1)
+      : "0.0";
+
+  const completedJobsWithTime = jobs.filter(
+    (job) =>
+      job.status === "COMPLETED" &&
+      job.result?.processing_time_seconds != null
+  );
+
+  const averageProcessingTime =
+    completedJobsWithTime.length > 0
+      ? (
+          completedJobsWithTime.reduce(
+            (total, job) =>
+              total + job.result.processing_time_seconds,
+            0
+          ) / completedJobsWithTime.length
+        ).toFixed(2)
+      : "0.00";
+
   return (
     <div className="app-shell">
       <aside className="sidebar">
@@ -373,6 +397,24 @@ function App() {
             <div>
               <span>Failed</span>
               <strong>{failedJobs}</strong>
+            </div>
+          </div>
+
+          <div className="stat-card">
+            <div className="stat-icon success">%</div>
+
+            <div>
+              <span>Success Rate</span>
+              <strong>{successRate}%</strong>
+            </div>
+          </div>
+
+          <div className="stat-card">
+            <div className="stat-icon processing-time">◷</div>
+
+            <div>
+              <span>Avg. Processing</span>
+              <strong>{averageProcessingTime}s</strong>
             </div>
           </div>
         </section>
