@@ -53,6 +53,41 @@ def get_job(
     return job
 
 
+@router.delete("/{job_id}")
+def delete_job(job_id: UUID, db: Session = Depends(get_db)):
+    job = db.get(Job, job_id)
+
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    if job.status not in {"COMPLETED", "FAILED"}:
+        raise HTTPException(
+            status_code=409,
+            detail="Only completed or failed jobs can be deleted",
+        )
+
+    file_path = Path(job.file_path)
+
+    try:
+        if file_path.exists():
+            file_path.unlink()
+
+        db.delete(job)
+        db.commit()
+
+        return {
+            "message": "Job deleted successfully",
+            "job_id": str(job_id),
+        }
+
+    except Exception as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail="Failed to delete job",
+        ) from exc
+
+
 @router.get("/{job_id}/events")
 async def job_events(
     job_id: UUID,

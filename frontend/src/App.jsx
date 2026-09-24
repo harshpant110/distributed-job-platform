@@ -10,6 +10,11 @@ function App() {
   const [uploading, setUploading] = useState(false);
   const [message, setMessage] = useState("");
   const [dragActive, setDragActive] = useState(false);
+  const [selectedJobId, setSelectedJobId] = useState(null);
+
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [sortOrder, setSortOrder] = useState("NEWEST");
 
   const fileInputRef = useRef(null);
 
@@ -168,6 +173,68 @@ function App() {
         return "•";
     }
   };
+
+  const selectedJob = jobs.find(
+    (job) => job.id === selectedJobId
+  );
+
+  const handleDeleteJob = async () => {
+    if (!selectedJob) {
+      return;
+    }
+
+    const confirmed = window.confirm(
+      `Are you sure you want to delete "${selectedJob.filename}"?`
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${API_URL}/jobs/${selectedJob.id}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.detail || "Failed to delete job");
+      }
+
+      setJobs((currentJobs) =>
+        currentJobs.filter((job) => job.id !== selectedJob.id)
+      );
+
+      setSelectedJobId(null);
+      setMessage("Job deleted successfully.");
+    } catch (error) {
+      setMessage(error.message);
+    }
+  };
+
+  const filteredJobs = [...jobs]
+    .filter((job) => {
+      const matchesSearch = job.filename
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase());
+
+      const matchesStatus =
+        statusFilter === "ALL" || job.status === statusFilter;
+
+      return matchesSearch && matchesStatus;
+    })
+    .sort((a, b) => {
+      const dateA = new Date(a.created_at).getTime();
+      const dateB = new Date(b.created_at).getTime();
+
+      return sortOrder === "NEWEST"
+        ? dateB - dateA
+        : dateA - dateB;
+  });
 
   const totalJobs = jobs.length;
   const queuedJobs = jobs.filter(
@@ -425,9 +492,42 @@ function App() {
               <h3>Recent Jobs</h3>
             </div>
 
-            <span className="job-count">
-              {totalJobs} {totalJobs === 1 ? "job" : "jobs"}
+            <span className="job-count">{
+            filteredJobs.length}{" "}
+            {filteredJobs.length === 1 ? "job" : "jobs"}
             </span>
+          </div>
+
+          <div className="job-controls">
+            <div className="job-search">
+              <span>⌕</span>
+
+              <input
+                type="text"
+                placeholder="Search jobs by filename..."
+                value={searchTerm}
+                onChange={(event) => setSearchTerm(event.target.value)}
+              />
+            </div>
+
+            <select
+              value={statusFilter}
+              onChange={(event) => setStatusFilter(event.target.value)}
+            >
+              <option value="ALL">All Status</option>
+              <option value="QUEUED">Queued</option>
+              <option value="PROCESSING">Processing</option>
+              <option value="COMPLETED">Completed</option>
+              <option value="FAILED">Failed</option>
+            </select>
+
+            <select
+              value={sortOrder}
+              onChange={(event) => setSortOrder(event.target.value)}
+            >
+              <option value="NEWEST">Newest First</option>
+              <option value="OLDEST">Oldest First</option>
+            </select>
           </div>
 
           {loading && jobs.length === 0 ? (
@@ -441,6 +541,12 @@ function App() {
               <h4>No jobs yet</h4>
               <p>Upload your first CSV file to start processing.</p>
             </div>
+          ) : filteredJobs.length === 0 ? (
+            <div className="state-card">
+              <div className="empty-icon">⌕</div>
+              <h4>No matching jobs</h4>
+              <p>Try changing your search or filter.</p>
+            </div>
           ) : (
             <div className="jobs-table-wrapper">
               <div className="jobs-table-header">
@@ -451,8 +557,12 @@ function App() {
               </div>
 
               <div className="jobs-list">
-                {jobs.map((job) => (
-                  <article className="job-row" key={job.id}>
+                {filteredJobs.map((job) => (
+                  <article
+                    className="job-row"
+                    key={job.id}
+                    onClick={() => setSelectedJobId(job.id)}
+                  >
                     <div className="file-column">
                       <div className="csv-icon">CSV</div>
 
@@ -505,6 +615,179 @@ function App() {
           )}
         </section>
       </main>
+
+      {selectedJob && (
+        <div
+          className="job-modal-overlay"
+          onClick={() => setSelectedJobId(null)}
+        >
+          <div
+            className="job-modal"
+            onClick={(event) => event.stopPropagation()}
+          >
+            <div className="job-modal-header">
+              <div>
+                <p className="eyebrow">JOB DETAILS</p>
+                <h3>{selectedJob.filename}</h3>
+              </div>
+
+              <button
+                className="modal-close"
+                onClick={() => setSelectedJobId(null)}
+              >
+                ×
+              </button>
+            </div>
+
+            <div className="job-modal-status">
+              <span
+                className={`status-badge ${getStatusClass(
+                  selectedJob.status
+                )}`}
+              >
+                <span>{getStatusIcon(selectedJob.status)}</span>
+                {selectedJob.status}
+              </span>
+            </div>
+
+            <div className="job-timeline">
+              <div className="timeline-item completed">
+                <div className="timeline-marker">✓</div>
+
+                <div className="timeline-content">
+                  <strong>Created</strong>
+                  <span>
+                    {new Date(
+                      selectedJob.created_at
+                    ).toLocaleString()}
+                  </span>
+                </div>
+              </div>
+
+              <div
+                className={`timeline-item ${
+                  selectedJob.started_at ? "completed" : "pending"
+                }`}
+              >
+                <div className="timeline-marker">
+                  {selectedJob.started_at ? "✓" : "•"}
+                </div>
+
+                <div className="timeline-content">
+                  <strong>Processing</strong>
+
+                  <span>
+                    {selectedJob.started_at
+                      ? new Date(
+                          selectedJob.started_at
+                        ).toLocaleString()
+                      : "Waiting to start"}
+                  </span>
+                </div>
+              </div>
+
+              <div
+                className={`timeline-item ${
+                  selectedJob.status === "COMPLETED"
+                    ? "completed"
+                    : selectedJob.status === "FAILED"
+                    ? "failed"
+                    : "pending"
+                }`}
+              >
+                <div className="timeline-marker">
+                  {selectedJob.status === "COMPLETED"
+                    ? "✓"
+                    : selectedJob.status === "FAILED"
+                    ? "×"
+                    : "•"}
+                </div>
+
+                <div className="timeline-content">
+                  <strong>
+                    {selectedJob.status === "FAILED"
+                      ? "Failed"
+                      : "Completed"}
+                  </strong>
+
+                  <span>
+                    {selectedJob.completed_at
+                      ? new Date(
+                          selectedJob.completed_at
+                        ).toLocaleString()
+                      : "Waiting for completion"}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            {selectedJob.result && (
+              <div className="job-result-details">
+                <p className="eyebrow">RESULT</p>
+
+                <div className="result-grid">
+                  <div>
+                    <span>Rows</span>
+                    <strong>
+                      {selectedJob.result.rows?.toLocaleString() ?? "—"}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>Columns</span>
+                    <strong>
+                      {selectedJob.result.columns ?? "—"}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>File Size</span>
+                    <strong>
+                      {selectedJob.result.file_size_bytes
+                        ? `${(
+                            selectedJob.result.file_size_bytes /
+                            (1024 * 1024)
+                          ).toFixed(2)} MB`
+                        : "—"}
+                    </strong>
+                  </div>
+
+                  <div>
+                    <span>Processing Time</span>
+                    <strong>
+                      {selectedJob.result.processing_time_seconds != null
+                        ? `${selectedJob.result.processing_time_seconds}s`
+                        : "—"}
+                    </strong>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {selectedJob.error && (
+              <div className="job-error-details">
+                <p className="eyebrow">ERROR</p>
+                <p>{selectedJob.error}</p>
+              </div>
+            )}
+
+            <div className="job-id-details">
+              <span>Job ID</span>
+              <code>{selectedJob.id}</code>
+            </div>
+
+            {(selectedJob.status === "COMPLETED" ||
+              selectedJob.status === "FAILED") && (
+              <button
+                className="delete-job-button"
+                onClick={handleDeleteJob}
+              >
+                Delete Job
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
