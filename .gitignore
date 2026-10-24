@@ -26,3 +26,6 @@ secrets/
 test.db
 backend/test.db
 backend/test_uploads/
+
+# Root-level generated test uploads
+/test_uploads/
