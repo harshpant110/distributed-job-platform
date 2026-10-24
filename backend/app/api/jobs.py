@@ -30,6 +30,42 @@ UPLOAD_DIRECTORY = Path(
 UPLOAD_DIRECTORY.mkdir(parents=True, exist_ok=True)
 
 MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 MB
+JOB_NOT_FOUND = "Job not found"
+
+
+async def save_uploaded_file(file: UploadFile, file_path: Path) -> int:
+    """Save an upload in chunks and enforce the maximum file size."""
+    total_size = 0
+    chunk_size = 1024 * 1024
+
+    UPLOAD_DIRECTORY.mkdir(parents=True, exist_ok=True)
+    file_path.touch()
+
+    def write_chunk(chunk: bytes) -> None:
+        with file_path.open("ab") as uploaded_file:
+            uploaded_file.write(chunk)
+
+    while True:
+        chunk = await file.read(chunk_size)
+        if not chunk:
+            break
+
+        total_size += len(chunk)
+        if total_size > MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=413,
+                detail="File size exceeds the 10 MB limit",
+            )
+
+        await asyncio.to_thread(write_chunk, chunk)
+
+    if total_size == 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Uploaded file is empty",
+        )
+
+    return total_size
 
 
 @router.get("/", response_model=list[JobResponse])
@@ -51,7 +87,7 @@ def get_job(
     if job is None:
         raise HTTPException(
             status_code=404,
-            detail="Job not found",
+            detail=JOB_NOT_FOUND,
         )
 
     return job
@@ -62,7 +98,7 @@ def delete_job(job_id: UUID, db: Session = Depends(get_db)):
     job = db.get(Job, job_id)
 
     if job is None:
-        raise HTTPException(status_code=404, detail="Job not found")
+        raise HTTPException(status_code=404, detail=JOB_NOT_FOUND)
 
     if job.status not in {"COMPLETED", "FAILED"}:
         raise HTTPException(
@@ -92,6 +128,46 @@ def delete_job(job_id: UUID, db: Session = Depends(get_db)):
         ) from exc
 
 
+def serialize_job_event(job: Job) -> dict:
+    """Convert a job into the existing SSE event payload."""
+    return {
+        "id": str(job.id),
+        "status": job.status,
+        "created_at": job.created_at.isoformat() if job.created_at else None,
+        "started_at": job.started_at.isoformat() if job.started_at else None,
+        "completed_at": (
+            job.completed_at.isoformat() if job.completed_at else None
+        ),
+        "result": job.result,
+        "error": job.error,
+    }
+
+
+async def generate_job_events(job_id: UUID, db: Session):
+    """Poll a job and emit SSE data when its status changes."""
+    last_status = None
+
+    while True:
+        db.expire_all()
+        current_job = db.get(Job, job_id)
+
+        if current_job is None:
+            yield f"data: {json.dumps({'error': JOB_NOT_FOUND})}\n\n"
+            return
+
+        current_status = current_job.status
+
+        if current_status != last_status:
+            event = serialize_job_event(current_job)
+            yield f"data: {json.dumps(event)}\n\n"
+            last_status = current_status
+
+        if current_status in {"COMPLETED", "FAILED"}:
+            return
+
+        await asyncio.sleep(0.5)
+
+
 @router.get("/{job_id}/events")
 async def job_events(
     job_id: UUID,
@@ -100,53 +176,10 @@ async def job_events(
     job = db.get(Job, job_id)
 
     if job is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Job not found",
-        )
-
-    async def event_generator():
-        last_status = None
-
-        while True:
-            db.expire_all()
-
-            current_job = db.get(Job, job_id)
-
-            if current_job is None:
-                yield f"data: {json.dumps({'error': 'Job not found'})}\n\n"
-                break
-
-            current_status = current_job.status
-
-            if current_status != last_status:
-                event = {
-                    "id": str(current_job.id),
-                    "status": current_job.status,
-                    "created_at": current_job.created_at.isoformat()
-                    if current_job.created_at
-                    else None,
-                    "started_at": current_job.started_at.isoformat()
-                    if current_job.started_at
-                    else None,
-                    "completed_at": current_job.completed_at.isoformat()
-                    if current_job.completed_at
-                    else None,
-                    "result": current_job.result,
-                    "error": current_job.error,
-                }
-
-                yield f"data: {json.dumps(event)}\n\n"
-
-                last_status = current_status
-
-            if current_status in {"COMPLETED", "FAILED"}:
-                break
-
-            await asyncio.sleep(0.5)
+        raise HTTPException(status_code=404, detail=JOB_NOT_FOUND)
 
     return StreamingResponse(
-        event_generator(),
+        generate_job_events(job_id, db),
         media_type="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
@@ -173,53 +206,44 @@ async def create_job(
         )
 
     original_filename = Path(file.filename).name
+    file_path = UPLOAD_DIRECTORY / f"{uuid4().hex}.csv"
+    upload_complete = False
+    job_created = False
 
-    stored_filename = f"{uuid4().hex}.csv"
-    file_path = UPLOAD_DIRECTORY / stored_filename
-
-    file_content = await file.read()
-
-    if not file_content:
-        raise HTTPException(
-            status_code=400,
-            detail="Uploaded file is empty",
-        )
-
-    if len(file_content) > MAX_FILE_SIZE:
-        raise HTTPException(
-            status_code=413,
-            detail="File size exceeds the 10 MB limit",
-        )
-
-    file_path.write_bytes(file_content)
-
-    job = Job(
-        filename=original_filename,
-        file_path=str(file_path),
-        status="QUEUED",
-    )
     try:
-        db.add(job)
-        db.commit()
-        db.refresh(job)
+        await save_uploaded_file(file, file_path)
+        upload_complete = True
+
+        job = Job(
+            filename=original_filename,
+            file_path=str(file_path),
+            status="QUEUED",
+        )
 
         try:
-            enqueue_job(str(job.id))
-
-        except Exception:
-            db.delete(job)
+            db.add(job)
             db.commit()
-            raise
+            db.refresh(job)
+            job_created = True
 
-        return job
+            enqueue_job(str(job.id))
+            return job
 
-    except Exception as exc:
-        db.rollback()
+        except Exception as exc:
+            db.rollback()
+            if job_created:
+                try:
+                    db.delete(job)
+                    db.commit()
+                except Exception:
+                    db.rollback()
 
-        if file_path.exists():
-            file_path.unlink()
+            raise HTTPException(
+                status_code=500,
+                detail="Failed to create and queue job",
+            ) from exc
 
-        raise HTTPException(
-            status_code=500,
-            detail="Failed to create and queue job",
-        ) from exc
+    finally:
+        await file.close()
+        if not upload_complete or not job_created:
+            file_path.unlink(missing_ok=True)
