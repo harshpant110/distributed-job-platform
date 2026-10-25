@@ -2,21 +2,26 @@ import os
 from pathlib import Path
 
 from sqlalchemy import create_engine
+from sqlalchemy.engine import URL
 from sqlalchemy.orm import sessionmaker
 
 
 DB_PASSWORD_FILE = Path("/run/secrets/db_password")
 
 
-def get_database_url() -> str:
+def get_database_url() -> URL | str:
     database_url = os.getenv("DATABASE_URL")
 
     if DB_PASSWORD_FILE.exists():
         password = DB_PASSWORD_FILE.read_text().strip()
 
-        database_url = (
-            f"postgresql+psycopg://jobuser:{password}"
-            "@postgres:5432/jobdb"
+        return URL.create(
+            drivername="postgresql+psycopg",
+            username="jobuser",
+            password=password,
+            host="postgres",
+            port=5432,
+            database="jobdb",
         )
 
     if database_url:
