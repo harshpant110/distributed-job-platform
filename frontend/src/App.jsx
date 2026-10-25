@@ -326,7 +326,7 @@ function App() {
             </div>
           </div>
 
-          <span className="version">v1.1</span>
+          <span className="version">v2.0</span>
         </div>
       </aside>
 

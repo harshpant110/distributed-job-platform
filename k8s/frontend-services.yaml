@@ -61,7 +61,7 @@ spec:
       automountServiceAccountToken: false
       containers:
         - name: frontend
-          image: jobflow-frontend:v2.0.0-dev
+          image: jobflow-frontend:v2.0
           imagePullPolicy: IfNotPresent
           ports:
             - name: http
