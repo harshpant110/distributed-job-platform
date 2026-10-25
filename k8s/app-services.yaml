@@ -139,6 +139,22 @@ spec:
             - name: db-credentials
               mountPath: /run/secrets
               readOnly: true
+          startupProbe:
+            exec:
+              command: ["python", "-c", "import redis, os; redis.Redis.from_url(os.environ['REDIS_URL']).ping()"]
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 20
+          readinessProbe:
+            exec:
+              command: ["python", "-c", "import redis, os; redis.Redis.from_url(os.environ['REDIS_URL']).ping()"]
+            periodSeconds: 10
+            timeoutSeconds: 3
+          livenessProbe:
+            exec:
+              command: ["python", "-c", "import redis, os; redis.Redis.from_url(os.environ['REDIS_URL']).ping()"]
+            periodSeconds: 20
+            timeoutSeconds: 3
           resources:
             requests:
               cpu: 100m

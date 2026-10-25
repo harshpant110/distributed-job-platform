@@ -140,9 +140,13 @@ spec:
         - name: redis
           image: redis:7-alpine
           imagePullPolicy: IfNotPresent
+          args: ["redis-server", "--appendonly", "yes", "--appendfsync", "everysec", "--dir", "/data"]
           ports:
             - name: redis
               containerPort: 6379
+          volumeMounts:
+            - name: redis-data
+              mountPath: /data
           startupProbe:
             exec:
               command: ["redis-cli", "ping"]
@@ -168,6 +172,10 @@ spec:
               cpu: 500m
               memory: 256Mi
               ephemeral-storage: 256Mi
+      volumes:
+        - name: redis-data
+          persistentVolumeClaim:
+            claimName: redis-data
 ---
 apiVersion: v1
 kind: Service
