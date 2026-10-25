@@ -656,3 +656,32 @@ The V1.2.0 state provides:
 - Production Docker validation
 
 This baseline will become the starting point for V2 Kubernetes work.
+---
+
+# V2 Kubernetes Implementation Status
+
+## Verified in the local k3d environment
+
+- Six application deployments are available: frontend, Nginx, backend, worker, Redis, and PostgreSQL.
+- Kubernetes Services provide in-cluster communication.
+- Kubernetes Secret and ConfigMap resources are used for credentials and Nginx configuration.
+- PostgreSQL, uploaded files, and Redis each have a Bound PVC.
+- Redis AOF persistence is enabled.
+- Worker startup, readiness, and liveness probes are configured.
+- All 9 backend tests passed in the latest recorded run, with one Starlette deprecation warning.
+- The dashboard and Jobs API returned HTTP 200 through the Nginx port-forward.
+- A CSV job completed with 2 rows and 3 columns, and the SSE stream emitted its completion result.
+- All current Kubernetes manifests passed server-side dry-run validation.
+
+## Remaining reliability and release work
+
+- Perform controlled worker and dependency failure/recovery tests.
+- Design and validate reliable job acknowledgement, retries, and recovery for interrupted jobs.
+- Verify data backup and restoration procedures.
+- Complete documentation and final Git/release verification before tagging V2.0.0.
+
+## Local environment caveats
+
+The current k3d setup is for learning and validation. Local-path storage, single-replica stateful services, and local port-forward access do not provide production-grade availability or disaster recovery.
+
+The worker has recorded one restart during a Redis rollout. Subsequent CSV processing succeeded, but stronger failure-recovery guarantees remain unverified.
